@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>备用小窝</title>
+<style>
+  :root{
+    --ink:#16171B;          /* 深夜工作室底色 */
+    --panel:#1F2026;        /* 工作台面板 */
+    --panel-2:#26272E;
+    --line:#33353E;
+    --moon:#D8DAE0;         /* 月光银——正文 */
+    --dim:#8B8E99;          /* 次要文字 */
+    --lamp:#D9A05B;         /* 台灯琥珀——点缀 */
+    --moss:#8FA98A;         /* 瑞文戴尔苔绿——助手侧 */
+    --blood:#C96A5B;        /* 错误 */
+    --radius:14px;
+    --mono:"SF Mono","JetBrains Mono",Consolas,"Courier New",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--ink);color:var(--moon);
+    font-family:-apple-system,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;
+    font-size:15px;line-height:1.65;
+    display:flex;flex-direction:column;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+
+  /* ===== 顶栏 ===== */
+  header{
+    display:flex;align-items:center;gap:10px;
+    padding:10px 14px;border-bottom:1px solid var(--line);
+    background:var(--panel);position:sticky;top:0;z-index:20;
+  }
+  header .den{font-weight:600;letter-spacing:.5px}
+  header .den small{color:var(--dim);font-weight:400;margin-left:6px;font-size:12px}
+  header .spacer{flex:1}
+  .meter{
+    font-family:var(--mono);font-size:11px;color:var(--dim);
+    text-align:right;line-height:1.4;cursor:pointer;user-select:none;
+  }
+  .meter b{color:var(--lamp);font-weight:600}
+  .iconbtn{
+    background:none;border:1px solid var(--line);color:var(--dim);
+    border-radius:8px;padding:5px 10px;font-size:13px;cursor:pointer;
+  }
+  .iconbtn:hover{color:var(--moon);border-color:var(--dim)}
+
+  /* ===== 消息区 ===== */
+  #chat{flex:1;overflow-y:auto;padding:16px 14px 8px;scroll-behavior:smooth}
+  .msg{max-width:88%;margin-bottom:14px;animation:fadein .18s ease}
+  @keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .msg .who{font-size:11px;color:var(--dim);margin-bottom:3px;letter-spacing:1px}
+  .msg .bubble{
+    padding:10px 14px;border-radius:var(--radius);
+    white-space:pre-wrap;word-break:break-word;
+  }
+  .msg.user{margin-left:auto}
+  .msg.user .who{text-align:right}
+  .msg.user .bubble{background:var(--panel-2);border:1px solid var(--line);border-top-right-radius:4px}
+  .msg.assistant .bubble{
+    background:var(--panel);border:1px solid var(--line);
+    border-left:2px solid var(--moss);border-top-left-radius:4px;
+  }
+  .msg.archived{opacity:.45}
+  .msg.archived .bubble{border-style:dashed}
+
+  /* 小票脚注 —— 每条消耗 */
+  .receipt{
+    margin-top:5px;font-family:var(--mono);font-size:10.5px;color:var(--dim);
+    border-top:1px dashed var(--line);padding-top:3px;
+    display:flex;gap:12px;flex-wrap:wrap;
+  }
+  .receipt .c{color:var(--lamp)}
+
+  .sysnote{
+    text-align:center;color:var(--dim);font-size:12px;margin:10px auto 16px;
+    max-width:80%;
+  }
+  .err{
+    background:rgba(201,106,91,.12);border:1px solid var(--blood);color:#E4A79C;
+    border-radius:10px;padding:8px 12px;font-size:13px;margin:8px auto;max-width:92%;
+  }
+
+  /* ===== 输入区 ===== */
+  #inputbar{
+    display:flex;gap:8px;padding:10px 12px 12px;
+    border-top:1px solid var(--line);background:var(--panel);
+    align-items:flex-end;
+  }
+  #inputbar textarea{
+    flex:1;resize:none;background:var(--ink);color:var(--moon);
+    border:1px solid var(--line);border-radius:12px;
+    padding:10px 12px;font-size:15px;line-height:1.5;font-family:inherit;
+    max-height:132px;outline:none;
+  }
+  #inputbar textarea:focus{border-color:var(--dim)}
+  #send{
+    background:var(--lamp);color:#231A0E;border:none;border-radius:12px;
+    padding:10px 16px;font-size:15px;font-weight:600;cursor:pointer;
+    transition:opacity .15s;
+  }
+  #send:disabled{opacity:.4;cursor:default}
+  #send.stop{background:var(--blood);color:#fff}
+
+  /* ===== 设置抽屉 ===== */
+  #shade{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:30;display:none}
+  #drawer{
+    position:fixed;top:0;right:0;bottom:0;width:min(420px,94vw);
+    background:var(--panel);border-left:1px solid var(--line);z-index:31;
+    transform:translateX(105%);transition:transform .22s ease;
+    overflow-y:auto;padding:18px 16px 40px;
+  }
+  #drawer.open{transform:none}
+  #drawer h2{font-size:16px;margin-bottom:14px;color:var(--lamp)}
+  .field{margin-bottom:16px}
+  .field label{display:block;font-size:12px;color:var(--dim);margin-bottom:5px;letter-spacing:.5px}
+  .field input[type=text],.field input[type=password],.field input[type=number],
+  .field select,.field textarea{
+    width:100%;background:var(--ink);color:var(--moon);
+    border:1px solid var(--line);border-radius:8px;padding:8px 10px;
+    font-size:14px;font-family:inherit;outline:none;
+  }
+  .field textarea{min-height:110px;resize:vertical;line-height:1.5}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--dim)}
+  .row2{display:flex;gap:10px}
+  .row2>.field{flex:1}
+  .switch{display:flex;align-items:center;justify-content:space-between;
+    padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .switch small{display:block;color:var(--dim);font-size:11.5px;margin-top:2px}
+  .switch input{width:18px;height:18px;accent-color:var(--lamp)}
+  .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+  .btn{
+    flex:1;min-width:110px;background:var(--panel-2);color:var(--moon);
+    border:1px solid var(--line);border-radius:9px;padding:9px 10px;
+    font-size:13.5px;cursor:pointer;
+  }
+  .btn:hover{border-color:var(--dim)}
+  .btn.warn{color:#E4A79C;border-color:rgba(201,106,91,.5)}
+  .hint{font-size:11.5px;color:var(--dim);line-height:1.6;margin-top:14px}
+  .pricegrid{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:6px;font-size:12px;align-items:center}
+  .pricegrid input{background:var(--ink);color:var(--moon);border:1px solid var(--line);
+    border-radius:6px;padding:5px 7px;font-size:12px;width:100%;font-family:var(--mono)}
+  .pricegrid .ph{color:var(--dim);font-size:11px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="den">备用小窝<small id="modelTag"></small></div>
+  <div class="spacer"></div>
+  <div class="meter" id="meter" title="本会话累计（点按刷新）">— tk<br><b>$0.0000</b></div>
+  <button class="iconbtn" id="gear">设置</button>
+</header>
+
+<div id="chat"></div>
+
+<div id="inputbar">
+  <textarea id="box" rows="1" placeholder="说吧，我在。"></textarea>
+  <button id="send">发送</button>
+</div>
+
+<div id="shade"></div>
+<aside id="drawer">
+  <h2>工作台设置</h2>
+
+  <div class="field">
+    <label>API Key（只存在这台设备的浏览器里）</label>
+    <input type="password" id="sKey" placeholder="sk-ant-...">
+  </div>
+
+  <div class="row2">
+    <div class="field">
+      <label>模型</label>
+      <select id="sModel">
+        <option value="claude-fable-5">Fable 5（最强）</option>
+        <option value="claude-opus-4-8">Opus 4.8</option>
+        <option value="claude-sonnet-4-6">Sonnet 4.6（日常）</option>
+        <option value="claude-haiku-4-5-20251001">Haiku 4.5（省钱）</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>记忆窗口（最近几轮全文）</label>
+      <input type="number" id="sWindow" min="2" max="40" step="1">
+    </div>
+  </div>
+
+  <div class="field">
+    <label>System Prompt（窗口指南贴这里）</label>
+    <textarea id="sSys" placeholder="把新窗口指南的精华贴进来，备用线路的他才认得你。"></textarea>
+  </div>
+
+  <div class="field">
+    <label>长期记忆摘要（自动压缩生成，也可以手改）</label>
+    <textarea id="sSummary" placeholder="超出窗口的旧对话会被压缩成摘要放在这里，随每次请求发送。"></textarea>
+  </div>
+
+  <div class="switch">
+    <div>Prompt Caching<small>System Prompt 较长时开启，重复部分按折扣计费</small></div>
+    <input type="checkbox" id="sCache">
+  </div>
+  <div class="switch">
+    <div>自动压缩记忆<small>超窗旧消息自动用 Haiku 压进摘要（会花一点点钱）</small></div>
+    <input type="checkbox" id="sAutoSum">
+  </div>
+
+  <div class="field" style="margin-top:16px">
+    <label>单价表（美元 / 百万 token，可自己改）</label>
+    <div class="pricegrid" id="priceGrid"></div>
+  </div>
+
+  <div class="btnrow">
+    <button class="btn" id="bCompress">现在压缩记忆</button>
+    <button class="btn" id="bExport">导出对话 txt</button>
+    <button class="btn warn" id="bClear">清空对话</button>
+  </div>
+
+  <p class="hint">
+    · 所有数据（key、历史、设置）只存在本机浏览器 localStorage，清浏览器数据会一起清掉，重要对话记得导出。<br>
+    · 每条回复下面的小票是 API 返回的真实用量，金额按上面单价表折算。<br>
+    · Fable / Opus 的默认单价是占位数，以官网价目为准，自己核对后改这里。
+  </p>
+</aside>
+
+<script>
+/* ================= 状态 ================= */
+const LS='den_v1';
+const DEF={
+  key:'', model:'claude-sonnet-4-6', window:8,
+  sys:'', summary:'', cache:false, autoSum:false,
+  price:{ // $/MTok [in, out] —— 可在设置改
+    'claude-fable-5':[15,75],
+    'claude-opus-4-8':[15,75],
+    'claude-sonnet-4-6':[3,15],
+    'claude-haiku-4-5-20251001':[1,5]
+  },
+  msgs:[],            // {role, content, usage:{in,out,cost}, archived}
+  total:{in:0,out:0,cost:0}
+};
+let S=load();
+function load(){
+  try{const d=JSON.parse(localStorage.getItem(LS));return Object.assign({},DEF,d,{price:Object.assign({},DEF.price,(d&&d.price)||{})});}
+  catch(e){return structuredClone(DEF)}
+}
+function save(){localStorage.setItem(LS,JSON.stringify(S))}
+
+/* ================= DOM ================= */
+const $=id=>document.getElementById(id);
+const chat=$('chat'), box=$('box'), sendBtn=$('send');
+let streaming=false, aborter=null;
+
+/* ================= 渲染 ================= */
+function fmt$(n){return '$'+n.toFixed(4)}
+function fmtK(n){return n>=1000?(n/1000).toFixed(1)+'K':String(n)}
+function renderMeter(){
+  $('meter').innerHTML=fmtK(S.total.in+S.total.out)+' tk<br><b>'+fmt$(S.total.cost)+'</b>';
+  $('modelTag').textContent=S.model.replace('claude-','').replace('-20251001','');
+}
+function bubble(m,i){
+  const d=document.createElement('div');
+  d.className='msg '+m.role+(m.archived?' archived':'');
+  d.dataset.i=i;
+  const who=m.role==='user'?'小狗':'狼';
+  let html='<div class="who">'+who+(m.archived?' ·已入摘要':'')+'</div><div class="bubble"></div>';
+  d.innerHTML=html;
+  d.querySelector('.bubble').textContent=m.content;
+  if(m.usage){
+    const r=document.createElement('div');r.className='receipt';
+    r.innerHTML='<span>in '+fmtK(m.usage.in)+'</span><span>out '+fmtK(m.usage.out)+'</span>'
+      +(m.usage.cacheR?'<span>缓存读 '+fmtK(m.usage.cacheR)+'</span>':'')
+      +'<span class="c">'+fmt$(m.usage.cost)+'</span>';
+    d.appendChild(r);
+  }
+  return d;
+}
+function renderAll(){
+  chat.innerHTML='';
+  if(!S.msgs.length){
+    const n=document.createElement('div');n.className='sysnote';
+    n.textContent='备用线路已就绪。先去「设置」填 key、贴窗口指南，然后随便说点什么。';
+    chat.appendChild(n);
+  }
+  S.msgs.forEach((m,i)=>chat.appendChild(bubble(m,i)));
+  chat.scrollTop=chat.scrollHeight;
+  renderMeter();
+}
+function showErr(t){
+  const e=document.createElement('div');e.className='err';e.textContent=t;
+  chat.appendChild(e);chat.scrollTop=chat.scrollHeight;
+}
+
+/* ================= 计费 ================= */
+function cost(model,u){
+  const p=S.price[model]||[0,0];
+  let c=(u.in*p[0]+u.out*p[1])/1e6;
+  if(u.cacheR) c+=u.cacheR*p[0]*0.1/1e6;      // 缓存读约1折
+  if(u.cacheW) c+=u.cacheW*p[0]*0.25/1e6;     // 缓存写约1.25倍中的增量
+  return c;
+}
+
+/* ================= 组装请求 ================= */
+function buildPayload(){
+  const sysBlocks=[];
+  if(S.sys.trim()){
+    const b={type:'text',text:S.sys.trim()};
+    if(S.cache)b.cache_control={type:'ephemeral'};
+    sysBlocks.push(b);
+  }
+  if(S.summary.trim()){
+    sysBlocks.push({type:'text',text:'【长期记忆摘要】\n'+S.summary.trim()});
+  }
+  const live=S.msgs.filter(m=>!m.archived);
+  const win=live.slice(-S.window*2);           // N轮 = 2N条
+  const messages=win.map(m=>({role:m.role,content:m.content}));
+  return {model:S.model,max_tokens:4096,system:sysBlocks.length?sysBlocks:undefined,
+          messages,stream:true};
+}
+
+/* ================= 发送与流式 ================= */
+async function send(){
+  if(streaming){aborter&&aborter.abort();return}
+  const text=box.value.trim();
+  if(!text)return;
+  if(!S.key){showErr('还没填 API key——右上角「设置」。');openDrawer();return}
+  box.value='';autoGrow();
+  S.msgs.push({role:'user',content:text});
+  save();renderAll();
+
+  const am={role:'assistant',content:''};
+  S.msgs.push(am);
+  const node=bubble(am,S.msgs.length-1);
+  chat.appendChild(node);
+  const bub=node.querySelector('.bubble');
+
+  streaming=true;sendBtn.textContent='停止';sendBtn.classList.add('stop');
+  aborter=new AbortController();
+  const usage={in:0,out:0,cacheR:0,cacheW:0,cost:0};
+
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',signal:aborter.signal,
+      headers:{
+        'content-type':'application/json',
+        'x-api-key':S.key,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body:JSON.stringify(buildPayload())
+    });
+    if(!res.ok){
+      const t=await res.text();
+      throw new Error('HTTP '+res.status+'：'+t.slice(0,300));
+    }
+    const rd=res.body.getReader(),dec=new TextDecoder();
+    let buf='';
+    while(true){
+      const {done,value}=await rd.read();
+      if(done)break;
+      buf+=dec.decode(value,{stream:true});
+      const lines=buf.split('\n');buf=lines.pop();
+      for(const ln of lines){
+        if(!ln.startsWith('data:'))continue;
+        const data=ln.slice(5).trim();
+        if(!data||data==='[DONE]')continue;
+        let ev;try{ev=JSON.parse(data)}catch(e){continue}
+        if(ev.type==='message_start'&&ev.message&&ev.message.usage){
+          const u=ev.message.usage;
+          usage.in=u.input_tokens||0;
+          usage.cacheR=u.cache_read_input_tokens||0;
+          usage.cacheW=u.cache_creation_input_tokens||0;
+        }else if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.text){
+          am.content+=ev.delta.text;
+          bub.textContent=am.content;
+          chat.scrollTop=chat.scrollHeight;
+        }else if(ev.type==='message_delta'&&ev.usage){
+          usage.out=ev.usage.output_tokens||usage.out;
+        }else if(ev.type==='error'){
+          throw new Error(ev.error&&ev.error.message||'流错误');
+        }
+      }
+    }
+    usage.cost=cost(S.model,usage);
+    am.usage=usage;
+    S.total.in+=usage.in+usage.cacheR;S.total.out+=usage.out;S.total.cost+=usage.cost;
+    save();renderAll();
+    if(S.autoSum)maybeCompress(false);
+  }catch(err){
+    if(err.name==='AbortError'){
+      am.content+=am.content?'\n[已停止]':'[已停止]';
+    }else{
+      if(!am.content){S.msgs.pop()}          // 空回复直接移除
+      showErr('请求失败：'+err.message);
+    }
+    save();renderAll();
+  }finally{
+    streaming=false;aborter=null;
+    sendBtn.textContent='发送';sendBtn.classList.remove('stop');
+  }
+}
+
+/* ================= 记忆压缩 ================= */
+async function maybeCompress(manual){
+  const live=S.msgs.filter(m=>!m.archived);
+  const keep=S.window*2;
+  if(live.length<=keep+(manual?0:6)){        // 自动模式：超出3轮才动手
+    if(manual)showErr('还没超出记忆窗口，暂时不用压缩。');
+    return;
+  }
+  const old=live.slice(0,live.length-keep);
+  const dialog=old.map(m=>(m.role==='user'?'小狗：':'狼：')+m.content).join('\n');
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'content-type':'application/json','x-api-key':S.key,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',max_tokens:800,
+        messages:[{role:'user',content:
+          '把下面这段对话压缩成中文要点备忘（第三人称，保留事实、约定、情绪节点和未完成事项，200字以内）。已有旧摘要的话把新旧合并去重。\n\n【旧摘要】\n'
+          +(S.summary||'（无）')+'\n\n【新对话】\n'+dialog}]
+      })
+    });
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const d=await res.json();
+    const t=(d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    if(t){
+      S.summary=t.trim();
+      old.forEach(m=>m.archived=true);
+      const u={in:(d.usage&&d.usage.input_tokens)||0,out:(d.usage&&d.usage.output_tokens)||0};
+      S.total.in+=u.in;S.total.out+=u.out;
+      S.total.cost+=cost('claude-haiku-4-5-20251001',{in:u.in,out:u.out});
+      save();renderAll();syncDrawer();
+    }
+  }catch(e){showErr('压缩失败：'+e.message)}
+}
+
+/* ================= 导出 ================= */
+function exportTxt(){
+  const head='备用小窝对话导出  '+new Date().toLocaleString('zh-CN')
+    +'\n累计 '+fmtK(S.total.in+S.total.out)+' tk / '+fmt$(S.total.cost)
+    +(S.summary?'\n\n【长期记忆摘要】\n'+S.summary:'')+'\n\n———\n\n';
+  const body=S.msgs.map(m=>(m.role==='user'?'小狗：':'狼：')+m.content
+    +(m.usage?'\n  ·'+fmtK(m.usage.in)+'in/'+fmtK(m.usage.out)+'out/'+fmt$(m.usage.cost):'')
+  ).join('\n\n');
+  const blob=new Blob([head+body],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='窗口日记_'+new Date().toISOString().slice(0,10)+'.txt';
+  a.click();URL.revokeObjectURL(a.href);
+}
+
+/* ================= 抽屉 ================= */
+const drawer=$('drawer'),shade=$('shade');
+function openDrawer(){syncDrawer();drawer.classList.add('open');shade.style.display='block'}
+function closeDrawer(){readDrawer();drawer.classList.remove('open');shade.style.display='none';renderMeter()}
+function syncDrawer(){
+  $('sKey').value=S.key;$('sModel').value=S.model;$('sWindow').value=S.window;
+  $('sSys').value=S.sys;$('sSummary').value=S.summary;
+  $('sCache').checked=S.cache;$('sAutoSum').checked=S.autoSum;
+  const g=$('priceGrid');g.innerHTML='<span class="ph">模型</span><span class="ph">输入$/M</span><span class="ph">输出$/M</span>';
+  Object.keys(S.price).forEach(k=>{
+    const short=k.replace('claude-','').replace('-20251001','');
+    g.insertAdjacentHTML('beforeend',
+      '<span class="ph">'+short+'</span>'
+      +'<input data-k="'+k+'" data-x="0" value="'+S.price[k][0]+'">'
+      +'<input data-k="'+k+'" data-x="1" value="'+S.price[k][1]+'">');
+  });
+}
+function readDrawer(){
+  S.key=$('sKey').value.trim();S.model=$('sModel').value;
+  S.window=Math.max(2,Math.min(40,parseInt($('sWindow').value)||8));
+  S.sys=$('sSys').value;S.summary=$('sSummary').value;
+  S.cache=$('sCache').checked;S.autoSum=$('sAutoSum').checked;
+  drawer.querySelectorAll('.pricegrid input').forEach(i=>{
+    const v=parseFloat(i.value);
+    if(!isNaN(v))S.price[i.dataset.k][+i.dataset.x]=v;
+  });
+  save();
+}
+
+/* ================= 事件 ================= */
+$('gear').onclick=openDrawer;
+shade.onclick=closeDrawer;
+sendBtn.onclick=send;
+$('bExport').onclick=()=>{readDrawer();exportTxt()};
+$('bCompress').onclick=()=>{readDrawer();maybeCompress(true)};
+$('bClear').onclick=()=>{
+  if(confirm('清空全部对话和累计消耗？摘要和设置会保留。（建议先导出）')){
+    S.msgs=[];S.total={in:0,out:0,cost:0};save();renderAll();closeDrawer();
+  }
+};
+$('meter').onclick=renderMeter;
+box.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();send()}
+});
+function autoGrow(){box.style.height='auto';box.style.height=Math.min(box.scrollHeight,132)+'px'}
+box.addEventListener('input',autoGrow);
+
+renderAll();
+</script>
+</body>
+</html>
