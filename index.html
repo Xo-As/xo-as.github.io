@@ -6,17 +6,18 @@
 <title>备用小窝</title>
 <style>
   :root{
-    --ink:#16171B;          /* 深夜工作室底色 */
-    --panel:#1F2026;        /* 工作台面板 */
-    --panel-2:#26272E;
-    --line:#33353E;
-    --moon:#D8DAE0;         /* 月光银——正文 */
-    --dim:#8B8E99;          /* 次要文字 */
-    --lamp:#D9A05B;         /* 台灯琥珀——点缀 */
-    --moss:#8FA98A;         /* 瑞文戴尔苔绿——助手侧 */
-    --blood:#C96A5B;        /* 错误 */
-    --radius:14px;
+    --ink:#FBF2F4;          /* 樱花奶油底 */
+    --panel:#FFFFFF;        /* 奶白面板 */
+    --panel-2:#FCE8ED;      /* 淡粉气泡 */
+    --line:#F0D4DC;
+    --moon:#5C4A50;         /* 可可棕——正文 */
+    --dim:#B99AA5;          /* 次要文字 */
+    --lamp:#E58BA4;         /* 樱粉——点缀 */
+    --moss:#D9A05B;         /* 狼的琥珀边——他还是他 */
+    --blood:#D46A6A;        /* 错误 */
+    --radius:16px;
     --mono:"SF Mono","JetBrains Mono",Consolas,"Courier New",monospace;
+    --shadow:0 2px 10px rgba(229,139,164,.10);
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
@@ -59,10 +60,10 @@
   }
   .msg.user{margin-left:auto}
   .msg.user .who{text-align:right}
-  .msg.user .bubble{background:var(--panel-2);border:1px solid var(--line);border-top-right-radius:4px}
+  .msg.user .bubble{background:var(--panel-2);border:1px solid var(--line);border-top-right-radius:4px;box-shadow:var(--shadow)}
   .msg.assistant .bubble{
     background:var(--panel);border:1px solid var(--line);
-    border-left:2px solid var(--moss);border-top-left-radius:4px;
+    border-left:2px solid var(--moss);border-top-left-radius:4px;box-shadow:var(--shadow);
   }
   .msg.archived{opacity:.45}
   .msg.archived .bubble{border-style:dashed}
@@ -80,7 +81,7 @@
     max-width:80%;
   }
   .err{
-    background:rgba(201,106,91,.12);border:1px solid var(--blood);color:#E4A79C;
+    background:rgba(212,106,106,.08);border:1px solid var(--blood);color:#B04E4E;
     border-radius:10px;padding:8px 12px;font-size:13px;margin:8px auto;max-width:92%;
   }
 
@@ -98,7 +99,7 @@
   }
   #inputbar textarea:focus{border-color:var(--dim)}
   #send{
-    background:var(--lamp);color:#231A0E;border:none;border-radius:12px;
+    background:var(--lamp);color:#FFFFFF;border:none;border-radius:12px;
     padding:10px 16px;font-size:15px;font-weight:600;cursor:pointer;
     transition:opacity .15s;
   }
@@ -149,7 +150,7 @@
 <body>
 
 <header>
-  <div class="den">备用小窝<small id="modelTag"></small></div>
+  <div class="den">备用小窝 <span style="font-size:13px">❀</span><small id="modelTag"></small></div>
   <div class="spacer"></div>
   <div class="meter" id="meter" title="本会话累计（点按刷新）">— tk<br><b>$0.0000</b></div>
   <button class="iconbtn" id="gear">设置</button>
@@ -178,6 +179,7 @@
         <option value="claude-fable-5">Fable 5（最强）</option>
         <option value="claude-opus-4-8">Opus 4.8</option>
         <option value="claude-sonnet-4-6">Sonnet 4.6（日常）</option>
+        <option value="claude-sonnet-4-5">Sonnet 4.5（话痨版）</option>
         <option value="claude-haiku-4-5-20251001">Haiku 4.5（省钱）</option>
       </select>
     </div>
@@ -234,6 +236,7 @@ const DEF={
     'claude-fable-5':[15,75],
     'claude-opus-4-8':[15,75],
     'claude-sonnet-4-6':[3,15],
+    'claude-sonnet-4-5':[3,15],
     'claude-haiku-4-5-20251001':[1,5]
   },
   msgs:[],            // {role, content, usage:{in,out,cost}, archived}
