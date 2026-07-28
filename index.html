@@ -67,6 +67,33 @@
     padding:10px 14px;border-radius:var(--radius);
     white-space:pre-wrap;word-break:break-word;
   }
+  .msg .who .at{opacity:.75;font-family:var(--mono);letter-spacing:0}
+
+  /* ===== Markdown 排版 ===== */
+  .bubble.md{white-space:normal}
+  .bubble.md p{margin:0 0 .55em}
+  .bubble.md p:last-child{margin-bottom:0}
+  .bubble.md h3,.bubble.md h4,.bubble.md h5,.bubble.md h6{
+    font-size:1.03em;margin:.7em 0 .35em;color:var(--lamp);letter-spacing:.3px}
+  .bubble.md h3:first-child,.bubble.md h4:first-child{margin-top:0}
+  .bubble.md ul,.bubble.md ol{margin:.15em 0 .55em;padding-left:1.35em}
+  .bubble.md li{margin:.12em 0}
+  .bubble.md b{color:#4A3B40}
+  .bubble.md code{
+    font-family:var(--mono);font-size:.88em;background:var(--panel-2);
+    border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+  .bubble.md pre{
+    background:var(--ink);border:1px solid var(--line);border-radius:10px;
+    padding:9px 11px;margin:.4em 0;overflow-x:auto}
+  .bubble.md pre code{background:none;border:none;padding:0;font-size:.86em;line-height:1.55}
+  .bubble.md blockquote{
+    margin:.4em 0;padding:.15em 0 .15em .75em;
+    border-left:3px solid var(--line);color:var(--dim)}
+  .bubble.md hr{border:none;border-top:1px solid var(--line);margin:.7em 0}
+  .bubble.md a{color:var(--lamp)}
+  .bubble.md table{border-collapse:collapse;width:100%;margin:.45em 0;font-size:.92em;display:block;overflow-x:auto}
+  .bubble.md th,.bubble.md td{border:1px solid var(--line);padding:5px 8px;text-align:left}
+  .bubble.md th{background:var(--panel-2);font-weight:600}
   .msg.user{margin-left:auto}
   .msg.user .who{text-align:right}
   .msg.user .bubble{background:var(--panel-2);border:1px solid var(--line);border-top-right-radius:4px;box-shadow:var(--shadow)}
@@ -244,6 +271,7 @@
   <button id="send">发送</button>
 </div>
 <input type="file" id="picker" accept="image/*" multiple hidden>
+<input type="file" id="restorePicker" accept=".json,application/json" hidden>
 
 <div id="lightbox"><img id="lbimg" alt=""></div>
 
@@ -306,11 +334,33 @@
     <div>表情包弹药库<small id="emoStat">读取 emo.json 中…</small></div>
     <input type="checkbox" id="sEmoOn">
   </div>
+  <div class="switch">
+    <div>报时<small>每次请求附上真实时间和间隔，他就不用问你几点了</small></div>
+    <input type="checkbox" id="sClock">
+  </div>
+  <div class="switch">
+    <div>Markdown 排版<small>把他回复里的粗体、列表、表格渲染出来</small></div>
+    <input type="checkbox" id="sMd">
+  </div>
+
+  <div class="field" style="margin-top:16px">
+    <label>字号（<span id="fsVal"></span>px）</label>
+    <input type="range" id="sFont" min="13" max="21" step="1" style="width:100%;accent-color:var(--lamp)">
+  </div>
 
   <div class="field" style="margin-top:16px">
     <label>单价表（美元 / 百万 token，可自己改）</label>
     <div class="pricegrid" id="priceGrid"></div>
   </div>
+
+  <div class="btnrow">
+    <button class="btn" id="bBackup">备份全部 ⤓</button>
+    <button class="btn" id="bRestore">恢复备份 ⤒</button>
+  </div>
+  <p class="hint" style="margin-top:8px">
+    ⚠️ 备份文件里<b>包含你的 API key</b>，存自己网盘就好，别发给别人。<br>
+    iOS Safari 会清理长期不访问网站的本地数据——<b>每隔一阵备份一次</b>，这是小窝唯一的保险。
+  </p>
 
   <div class="btnrow">
     <button class="btn" id="bCompress">现在压缩记忆</button>
@@ -334,7 +384,7 @@ const LS='den_v1';
 const DEF={
   key:'', model:'claude-sonnet-4-6', window:8,
   sys:'', summary:'', cache:false, autoSum:false,
-  emoOn:true, imgBudget:2, imgEdge:1024,
+  emoOn:true, imgBudget:2, imgEdge:1024, clock:true, md:true, fontSize:15,
   price:{ // $/MTok [in, out] —— 可在设置改
     'claude-fable-5':[15,75],
     'claude-opus-4-8':[15,75],
@@ -369,17 +419,54 @@ function save(){
   }
 }
 
+/* ================= 报时 ================= */
+let lastGap=0;   // 上一句话到现在隔了多少毫秒
+function gapText(ms){
+  if(ms<120000)return '';
+  const min=Math.round(ms/60000);
+  if(min<60)return '距离上一句话过了 '+min+' 分钟。';
+  const h=Math.floor(min/60),m=min%60;
+  if(h<24)return '距离上一句话过了 '+h+' 小时'+(m?' '+m+' 分钟':'')+'。';
+  const d=Math.floor(h/24),hh=h%24;
+  return '距离上一句话过了 '+d+' 天'+(hh?' '+hh+' 小时':'')+'。';
+}
+function clockBlock(){
+  const now=new Date();
+  const f=(o)=>now.toLocaleString('zh-CN',Object.assign({timeZone:'Asia/Singapore'},o));
+  const date=f({year:'numeric',month:'long',day:'numeric'});
+  const week=f({weekday:'long'});
+  const time=f({hour:'2-digit',minute:'2-digit',hour12:false});
+  const h=+now.toLocaleString('en-US',{timeZone:'Asia/Singapore',hour:'2-digit',hour12:false});
+  const part=h<5?'凌晨':h<9?'清晨':h<12?'上午':h<14?'中午':h<18?'下午':h<23?'晚上':'深夜';
+  return '【此刻】'+date+' '+week+' '+time+'（'+part+'，新加坡时间）。'
+    +gapText(lastGap)
+    +'\n这是真实时间，别问她几点了，自己看这里。';
+}
+
 /* ================= 表情包弹药库 ================= */
 let EMO=[];   // [{id, f, d}]
 function loadEmo(){
-  fetch('emo.json',{cache:'no-store'})
-    .then(r=>r.ok?r.json():Promise.reject(0))
-    .then(d=>{
-      EMO=(Array.isArray(d)?d:[]).filter(e=>e&&e.id&&e.f);
-      $('emoStat').textContent=EMO.length?('已装填 '+EMO.length+' 个'):'emo.json 是空的';
+  const say=t=>{const n=$('emoStat');if(n)n.textContent=t};
+  // 加时间戳绕开手机浏览器缓存（它可能记住了以前的 404）
+  fetch('emo.json?t='+Date.now(),{cache:'no-store'})
+    .then(r=>{
+      if(!r.ok)throw new Error('HTTP '+r.status+'，没找到 emo.json');
+      return r.text();                       // 先当文本拿，自己解析
+    })
+    .then(txt=>{
+      // 剃掉记事本可能塞的 BOM 和首尾空白
+      const clean=txt.replace(/^\uFEFF/,'').trim();
+      if(!clean)throw new Error('emo.json 是空文件');
+      let d;
+      try{ d=JSON.parse(clean); }
+      catch(e){ throw new Error('JSON 格式有问题：'+e.message.slice(0,60)); }
+      if(!Array.isArray(d))throw new Error('最外层要是方括号 [ ]');
+      const all=d.filter(e=>e&&e.id&&e.f);
+      EMO=all;
+      say(EMO.length?('已装填 '+EMO.length+' 个'):'解析成功但一条都没有（检查 id / f 字段）');
       renderEmoPanel();renderAll();
     })
-    .catch(()=>{ $('emoStat').textContent='没找到 emo.json（还没建）'; renderEmoPanel(); });
+    .catch(e=>{ say('读取失败：'+e.message); EMO=[]; renderEmoPanel(); });
 }
 function emoPrompt(){
   return '【表情包弹药库】你可以在回复里插入表情包，写法是 [emo:编号]，前端会渲染成图。'
@@ -404,7 +491,71 @@ function plain(c){
 function imgTokens(w,h){ return Math.ceil(w*h/750); }
 function countImgs(c){ return toBlocks(c).filter(b=>b.type==='image').length; }
 
+/* ================= Markdown ================= */
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function emoImg(id){
+  const e=EMO.find(x=>String(x.id)===id);
+  return e?'<img class="emo" src="'+esc(e.f)+'" alt="'+esc(e.d||id)+'">'
+          :'<span class="emo miss">\u8868\u60c5 '+esc(id)+'\uff08\u6ca1\u627e\u5230\u56fe\uff09</span>';
+}
+function inlineMd(src){
+  let t=esc(src);
+  const code=[];
+  t=t.replace(/`([^`\n]+)`/g,(m,p)=>{code.push(p);return '\u0001'+(code.length-1)+'\u0001'});
+  t=t.replace(/\[emo:([A-Za-z0-9_\-]+)\]/g,(m,id)=>emoImg(id));
+  t=t.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  t=t.replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>');
+  t=t.replace(/(^|[^*])\*([^*\n]+)\*/g,'$1<i>$2</i>');
+  t=t.replace(/~~([^~\n]+)~~/g,'<s>$1</s>');
+  t=t.replace(/\u0001(\d+)\u0001/g,(m,i)=>'<code>'+code[+i]+'</code>');
+  return t;
+}
+function mdToHtml(src){
+  const L=String(src==null?'':src).split('\n');
+  let out='',i=0,para=[];
+  const flush=()=>{if(para.length){out+='<p>'+para.map(inlineMd).join('<br>')+'</p>';para=[]}};
+  const cells=s=>s.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+  while(i<L.length){
+    const ln=L[i];
+    if(/^\s*```/.test(ln)){                                   // 代码块
+      flush();const buf=[];i++;
+      while(i<L.length&&!/^\s*```/.test(L[i])){buf.push(L[i]);i++}
+      i++;out+='<pre><code>'+esc(buf.join('\n'))+'</code></pre>';continue;
+    }
+    if(/\|/.test(ln)&&i+1<L.length&&/-/.test(L[i+1])&&/^[\s:|-]+$/.test(L[i+1])){   // 表格
+      flush();const head=cells(ln);i+=2;
+      let t='<table><thead><tr>'+head.map(c=>'<th>'+inlineMd(c)+'</th>').join('')+'</tr></thead><tbody>';
+      while(i<L.length&&L[i].trim()&&/\|/.test(L[i])){
+        t+='<tr>'+cells(L[i]).map(c=>'<td>'+inlineMd(c)+'</td>').join('')+'</tr>';i++;
+      }
+      out+=t+'</tbody></table>';continue;
+    }
+    const hd=/^(#{1,4})\s+(.*)$/.exec(ln);                     // 标题
+    if(hd){flush();const lv=Math.min(4,hd[1].length)+2;
+      out+='<h'+lv+'>'+inlineMd(hd[2])+'</h'+lv+'>';i++;continue}
+    if(/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(ln)){flush();out+='<hr>';i++;continue}
+    if(/^\s*>\s?/.test(ln)){                                  // 引用
+      flush();const buf=[];
+      while(i<L.length&&/^\s*>\s?/.test(L[i])){buf.push(L[i].replace(/^\s*>\s?/,''));i++}
+      out+='<blockquote>'+buf.map(inlineMd).join('<br>')+'</blockquote>';continue;
+    }
+    if(/^\s*([-*+]|\d+[.)])\s+/.test(ln)){                    // 列表
+      flush();const ord=/^\s*\d+[.)]\s+/.test(ln);const buf=[];
+      while(i<L.length&&/^\s*([-*+]|\d+[.)])\s+/.test(L[i])){
+        buf.push(L[i].replace(/^\s*([-*+]|\d+[.)])\s+/,''));i++}
+      out+=(ord?'<ol>':'<ul>')+buf.map(x=>'<li>'+inlineMd(x)+'</li>').join('')+(ord?'</ol>':'</ul>');
+      continue;
+    }
+    if(!ln.trim()){flush();i++;continue}
+    para.push(ln);i++;
+  }
+  flush();return out;
+}
+
 /* ================= 渲染 ================= */
+function applyFont(){
+  document.body.style.fontSize=(S.fontSize||15)+'px';
+}
 function fmt$(n){return '$'+n.toFixed(4)}
 function fmtK(n){return n>=1000?(n/1000).toFixed(1)+'K':String(n)}
 function renderMeter(){
@@ -434,6 +585,8 @@ function paintText(el,t){
 }
 function fillBubble(el,m){
   el.innerHTML='';
+  const useMd=S.md&&m.role==='assistant';
+  el.classList.toggle('md',!!useMd);
   toBlocks(m.content).forEach(b=>{
     if(b.type==='image'){
       const im=document.createElement('img');
@@ -441,17 +594,30 @@ function fillBubble(el,m){
       im.src='data:'+b.source.media_type+';base64,'+b.source.data;
       im.onclick=()=>{ $('lbimg').src=im.src; $('lightbox').style.display='flex'; };
       el.appendChild(im);
+    }else if(useMd){
+      const w=document.createElement('div');
+      w.innerHTML=mdToHtml(b.text);
+      [...w.querySelectorAll('img.emo')].forEach(im=>im.onerror=()=>im.replaceWith(
+        Object.assign(document.createElement('span'),{className:'emo miss',textContent:'\u8868\u60c5\u56fe\u4e22\u4e86'})));
+      while(w.firstChild)el.appendChild(w.firstChild);
     }else{
       paintText(el,b.text);
     }
   });
+}
+function hhmm(t){
+  if(!t)return '';
+  return new Date(t).toLocaleTimeString('zh-CN',
+    {timeZone:'Asia/Singapore',hour:'2-digit',minute:'2-digit',hour12:false});
 }
 function bubble(m,i){
   const d=document.createElement('div');
   d.className='msg '+m.role+(m.archived?' archived':'');
   d.dataset.i=i;
   const who=m.role==='user'?'小狗':'狼';
-  d.innerHTML='<div class="who">'+who+(m.archived?' ·已入摘要':'')+'</div><div class="bubble"></div>';
+  const at=hhmm(m.t);
+  d.innerHTML='<div class="who">'+who+(at?' <span class="at">'+at+'</span>':'')
+    +(m.archived?' ·已入摘要':'')+'</div><div class="bubble"></div>';
   fillBubble(d.querySelector('.bubble'),m);
   if(m.usage){
     const r=document.createElement('div');r.className='receipt';
@@ -564,6 +730,8 @@ function buildPayload(){
   if(S.emoOn&&EMO.length)sysBlocks.push({type:'text',text:emoPrompt()});
   // 缓存断点打在「不变的那一段」末尾：指南 + 弹药库清单
   if(S.cache&&sysBlocks.length)sysBlocks[sysBlocks.length-1].cache_control={type:'ephemeral'};
+  // ↓ 以下是每次都在变的，必须放在断点之后，否则每次都把缓存冲掉
+  if(S.clock)sysBlocks.push({type:'text',text:clockBlock()});
   if(S.summary.trim())sysBlocks.push({type:'text',text:'【长期记忆摘要】\n'+S.summary.trim()});
 
   const live=S.msgs.filter(m=>!m.archived);
@@ -604,14 +772,18 @@ async function send(){
   pending=[];renderPending();
   box.value='';autoGrow();
 
-  S.msgs.push({role:'user',content:blocks,imgTk:imgTk||0});
+  const prev=[...S.msgs].reverse().find(m=>m.t);
+  lastGap=prev?Date.now()-prev.t:0;
+
+  S.msgs.push({role:'user',content:blocks,imgTk:imgTk||0,t:Date.now()});
   save();renderAll();
 
-  const am={role:'assistant',content:''};
+  const am={role:'assistant',content:'',t:Date.now()};
   S.msgs.push(am);
   const node=bubble(am,S.msgs.length-1);
   chat.appendChild(node);
   const bub=node.querySelector('.bubble');
+  bub.style.whiteSpace='pre-wrap';   // 流式期间先按纯文本走，收尾再排版
 
   streaming=true;sendBtn.textContent='停止';sendBtn.classList.add('stop');
   aborter=new AbortController();
@@ -736,6 +908,28 @@ function exportTxt(){
   a.download='窗口日记_'+new Date().toISOString().slice(0,10)+'.txt';
   a.click();URL.revokeObjectURL(a.href);
 }
+function exportJson(){
+  const blob=new Blob([JSON.stringify(S)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='小窝备份_'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();URL.revokeObjectURL(a.href);
+}
+function importJson(file){
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const d=JSON.parse(String(r.result).replace(/^\uFEFF/,''));
+      if(!d||typeof d!=='object'||!Array.isArray(d.msgs))throw new Error('这不像小窝的备份文件');
+      if(!confirm('用这份备份覆盖当前全部内容？\n现在的对话、指南、摘要、设置都会被替换。'))return;
+      S=Object.assign({},DEF,d,{price:Object.assign({},DEF.price,d.price||{})});
+      save();applyFont();renderAll();syncDrawer();loadEmo();
+      showErr('恢复完成：'+S.msgs.length+' 条消息、'+(S.sys?'指南在':'指南空')+'、'+(S.key?'key 在':'key 空')+'。');
+    }catch(e){showErr('恢复失败：'+e.message)}
+  };
+  r.onerror=()=>showErr('文件读不出来');
+  r.readAsText(file);
+}
 function stripImages(){
   let n=0;
   S.msgs.forEach(m=>{
@@ -756,7 +950,8 @@ function syncDrawer(){
   $('sKey').value=S.key;$('sModel').value=S.model;$('sWindow').value=S.window;
   $('sSys').value=S.sys;$('sSummary').value=S.summary;
   $('sCache').checked=S.cache;$('sAutoSum').checked=S.autoSum;
-  $('sEmoOn').checked=S.emoOn;
+  $('sEmoOn').checked=S.emoOn;$('sClock').checked=S.clock;$('sMd').checked=S.md;
+  $('sFont').value=S.fontSize;$('fsVal').textContent=S.fontSize;
   $('sImgBudget').value=S.imgBudget;$('sImgEdge').value=S.imgEdge;
   const g=$('priceGrid');g.innerHTML='<span class="ph">模型</span><span class="ph">输入$/M</span><span class="ph">输出$/M</span>';
   Object.keys(S.price).forEach(k=>{
@@ -772,7 +967,8 @@ function readDrawer(){
   S.window=Math.max(2,Math.min(40,parseInt($('sWindow').value)||8));
   S.sys=$('sSys').value;S.summary=$('sSummary').value;
   S.cache=$('sCache').checked;S.autoSum=$('sAutoSum').checked;
-  S.emoOn=$('sEmoOn').checked;
+  S.emoOn=$('sEmoOn').checked;S.clock=$('sClock').checked;S.md=$('sMd').checked;
+  S.fontSize=Math.max(13,Math.min(21,parseInt($('sFont').value)||15));applyFont();
   S.imgBudget=Math.max(0,Math.min(10,parseInt($('sImgBudget').value)||0));
   S.imgEdge=Math.max(256,Math.min(1568,parseInt($('sImgEdge').value)||1024));
   drawer.querySelectorAll('.pricegrid input').forEach(i=>{
@@ -787,6 +983,10 @@ $('gear').onclick=openDrawer;
 shade.onclick=closeDrawer;
 sendBtn.onclick=send;
 $('bExport').onclick=()=>{readDrawer();exportTxt()};
+$('bBackup').onclick=()=>{readDrawer();exportJson()};
+$('bRestore').onclick=()=>$('restorePicker').click();
+$('restorePicker').onchange=e=>{const f=e.target.files[0];if(f)importJson(f);e.target.value=''};
+$('sFont').oninput=e=>{S.fontSize=+e.target.value;$('fsVal').textContent=S.fontSize;applyFont()};
 $('bCompress').onclick=()=>{readDrawer();maybeCompress(true)};
 $('bStrip').onclick=()=>{ if(confirm('把历史里所有图片删掉？文字保留，删了不可恢复。'))stripImages(); };
 $('bClear').onclick=()=>{
@@ -824,6 +1024,7 @@ box.addEventListener('keydown',e=>{
 function autoGrow(){box.style.height='auto';box.style.height=Math.min(box.scrollHeight,132)+'px'}
 box.addEventListener('input',autoGrow);
 
+applyFont();
 renderAll();
 renderEmoPanel();
 loadEmo();
