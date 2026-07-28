@@ -28,6 +28,14 @@
     display:flex;flex-direction:column;
     padding-bottom:env(safe-area-inset-bottom);
   }
+  body.dragging::after{
+    content:"松手，图就进来了";
+    position:fixed;inset:12px;z-index:60;
+    border:2px dashed var(--lamp);border-radius:18px;
+    background:rgba(251,242,244,.88);color:var(--lamp);
+    display:flex;align-items:center;justify-content:center;
+    font-size:16px;letter-spacing:1px;pointer-events:none;
+  }
 
   /* ===== 顶栏 ===== */
   header{
@@ -43,6 +51,7 @@
     text-align:right;line-height:1.4;cursor:pointer;user-select:none;
   }
   .meter b{color:var(--lamp);font-weight:600}
+  .meter .ceil{color:var(--moss)}
   .iconbtn{
     background:none;border:1px solid var(--line);color:var(--dim);
     border-radius:8px;padding:5px 10px;font-size:13px;cursor:pointer;
@@ -68,6 +77,25 @@
   .msg.archived{opacity:.45}
   .msg.archived .bubble{border-style:dashed}
 
+  /* 图片与表情包 */
+  .bubble .shot{
+    display:block;max-width:100%;width:230px;border-radius:11px;
+    border:1px solid var(--line);margin:4px 0;cursor:zoom-in;
+  }
+  .bubble .emo{
+    display:inline-block;vertical-align:middle;
+    width:118px;max-width:60%;margin:2px 2px;border-radius:9px;
+  }
+  .bubble .emo.miss{
+    width:auto;padding:2px 7px;font-size:12px;color:var(--dim);
+    border:1px dashed var(--line);border-radius:7px;
+  }
+  #lightbox{
+    position:fixed;inset:0;background:rgba(60,44,49,.82);z-index:70;
+    display:none;align-items:center;justify-content:center;padding:20px;cursor:zoom-out;
+  }
+  #lightbox img{max-width:100%;max-height:100%;border-radius:12px}
+
   /* 小票脚注 —— 每条消耗 */
   .receipt{
     margin-top:5px;font-family:var(--mono);font-size:10.5px;color:var(--dim);
@@ -75,6 +103,8 @@
     display:flex;gap:12px;flex-wrap:wrap;
   }
   .receipt .c{color:var(--lamp)}
+  .receipt .img{color:var(--moss)}
+  .msg.user .receipt{justify-content:flex-end}
 
   .sysnote{
     text-align:center;color:var(--dim);font-size:12px;margin:10px auto 16px;
@@ -83,6 +113,25 @@
   .err{
     background:rgba(212,106,106,.08);border:1px solid var(--blood);color:#B04E4E;
     border-radius:10px;padding:8px 12px;font-size:13px;margin:8px auto;max-width:92%;
+  }
+
+  /* ===== 待发图片条 ===== */
+  #pending{
+    display:none;gap:8px;padding:8px 12px 0;flex-wrap:wrap;
+    background:var(--panel);border-top:1px solid var(--line);
+  }
+  #pending.on{display:flex}
+  .pend{position:relative}
+  .pend img{width:62px;height:62px;object-fit:cover;border-radius:9px;border:1px solid var(--line)}
+  .pend .x{
+    position:absolute;top:-6px;right:-6px;width:20px;height:20px;line-height:18px;
+    text-align:center;border-radius:50%;background:var(--lamp);color:#fff;
+    font-size:13px;cursor:pointer;border:none;
+  }
+  .pend .tk{
+    position:absolute;bottom:0;left:0;right:0;font-family:var(--mono);font-size:9px;
+    color:#fff;background:rgba(92,74,80,.55);text-align:center;
+    border-radius:0 0 8px 8px;
   }
 
   /* ===== 输入区 ===== */
@@ -98,6 +147,12 @@
     max-height:132px;outline:none;
   }
   #inputbar textarea:focus{border-color:var(--dim)}
+  .tool{
+    background:var(--ink);border:1px solid var(--line);color:var(--dim);
+    border-radius:12px;padding:9px 11px;font-size:16px;cursor:pointer;line-height:1;
+  }
+  .tool:hover{border-color:var(--lamp);color:var(--lamp)}
+  .tool.on{border-color:var(--lamp);color:var(--lamp);background:var(--panel-2)}
   #send{
     background:var(--lamp);color:#FFFFFF;border:none;border-radius:12px;
     padding:10px 16px;font-size:15px;font-weight:600;cursor:pointer;
@@ -105,6 +160,24 @@
   }
   #send:disabled{opacity:.4;cursor:default}
   #send.stop{background:var(--blood);color:#fff}
+
+  /* ===== 弹药库面板 ===== */
+  #emopanel{
+    display:none;background:var(--panel);border-top:1px solid var(--line);
+    padding:10px 12px;max-height:210px;overflow-y:auto;
+  }
+  #emopanel.on{display:block}
+  #emopanel .grid{display:flex;flex-wrap:wrap;gap:8px}
+  #emopanel .cell{
+    width:74px;cursor:pointer;text-align:center;
+  }
+  #emopanel .cell img{width:74px;height:74px;object-fit:contain;border-radius:9px;
+    border:1px solid var(--line);background:var(--ink)}
+  #emopanel .cell span{display:block;font-size:10px;color:var(--dim);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #emopanel .empty{font-size:12px;color:var(--dim);line-height:1.7}
+  #emopanel code{font-family:var(--mono);font-size:11px;background:var(--ink);
+    padding:1px 5px;border-radius:4px}
 
   /* ===== 设置抽屉 ===== */
   #shade{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:30;display:none}
@@ -152,16 +225,27 @@
 <header>
   <div class="den">备用小窝 <span style="font-size:13px">❀</span><small id="modelTag"></small></div>
   <div class="spacer"></div>
-  <div class="meter" id="meter" title="本会话累计（点按刷新）">— tk<br><b>$0.0000</b></div>
+  <div class="meter" id="meter" title="上下文 / 累计（点按刷新）">— tk<br><b>$0.0000</b></div>
   <button class="iconbtn" id="gear">设置</button>
 </header>
 
 <div id="chat"></div>
 
+<div id="emopanel">
+  <div class="grid" id="emoGrid"></div>
+</div>
+
+<div id="pending"></div>
+
 <div id="inputbar">
+  <button class="tool" id="bPic" title="发图片">🖼</button>
+  <button class="tool" id="bEmo" title="表情包弹药库">❀</button>
   <textarea id="box" rows="1" placeholder="说吧，我在。"></textarea>
   <button id="send">发送</button>
 </div>
+<input type="file" id="picker" accept="image/*" multiple hidden>
+
+<div id="lightbox"><img id="lbimg" alt=""></div>
 
 <div id="shade"></div>
 <aside id="drawer">
@@ -189,6 +273,17 @@
     </div>
   </div>
 
+  <div class="row2">
+    <div class="field">
+      <label>随请求携带的图片张数上限</label>
+      <input type="number" id="sImgBudget" min="0" max="10" step="1">
+    </div>
+    <div class="field">
+      <label>发送前压缩到长边（px）</label>
+      <input type="number" id="sImgEdge" min="256" max="1568" step="64">
+    </div>
+  </div>
+
   <div class="field">
     <label>System Prompt（窗口指南贴这里）</label>
     <textarea id="sSys" placeholder="把新窗口指南的精华贴进来，备用线路的他才认得你。"></textarea>
@@ -207,6 +302,10 @@
     <div>自动压缩记忆<small>超窗旧消息自动用 Haiku 压进摘要（会花一点点钱）</small></div>
     <input type="checkbox" id="sAutoSum">
   </div>
+  <div class="switch">
+    <div>表情包弹药库<small id="emoStat">读取 emo.json 中…</small></div>
+    <input type="checkbox" id="sEmoOn">
+  </div>
 
   <div class="field" style="margin-top:16px">
     <label>单价表（美元 / 百万 token，可自己改）</label>
@@ -216,12 +315,15 @@
   <div class="btnrow">
     <button class="btn" id="bCompress">现在压缩记忆</button>
     <button class="btn" id="bExport">导出对话 txt</button>
+    <button class="btn" id="bStrip">清掉历史图片</button>
     <button class="btn warn" id="bClear">清空对话</button>
   </div>
 
   <p class="hint">
     · 所有数据（key、历史、设置）只存在本机浏览器 localStorage，清浏览器数据会一起清掉，重要对话记得导出。<br>
     · 每条回复下面的小票是 API 返回的真实用量，金额按上面单价表折算。<br>
+    · 图片按面积计费，约 长×宽÷750 个 token。超过上限张数的旧图会自动换成文字占位，不再花钱。<br>
+    · 弹药库：在仓库根目录放 emo.json 和 emo/ 文件夹，只有描述文字进 API，图本身零 token。<br>
     · Fable / Opus 的默认单价是占位数，以官网价目为准，自己核对后改这里。
   </p>
 </aside>
@@ -232,6 +334,7 @@ const LS='den_v1';
 const DEF={
   key:'', model:'claude-sonnet-4-6', window:8,
   sys:'', summary:'', cache:false, autoSum:false,
+  emoOn:true, imgBudget:2, imgEdge:1024,
   price:{ // $/MTok [in, out] —— 可在设置改
     'claude-fable-5':[15,75],
     'claude-opus-4-8':[15,75],
@@ -239,7 +342,7 @@ const DEF={
     'claude-sonnet-4-5':[3,15],
     'claude-haiku-4-5-20251001':[1,5]
   },
-  msgs:[],            // {role, content, usage:{in,out,cost}, archived}
+  msgs:[],            // {role, content(string|blocks), usage, imgTk, archived}
   total:{in:0,out:0,cost:0}
 };
 let S=load();
@@ -247,33 +350,119 @@ function load(){
   try{const d=JSON.parse(localStorage.getItem(LS));return Object.assign({},DEF,d,{price:Object.assign({},DEF.price,(d&&d.price)||{})});}
   catch(e){return structuredClone(DEF)}
 }
-function save(){localStorage.setItem(LS,JSON.stringify(S))}
+function save(){
+  try{ localStorage.setItem(LS,JSON.stringify(S)); return true; }
+  catch(e){
+    // 存储满了：从最老的消息开始丢图，文字全留着
+    let dropped=0;
+    for(const m of S.msgs){
+      const bs=toBlocks(m.content);
+      if(!bs.some(b=>b.type==='image'))continue;
+      m.content=bs.map(b=>b.type==='image'?{type:'text',text:'[图片·本地已清理]'}:b);
+      dropped++;
+      try{ localStorage.setItem(LS,JSON.stringify(S));
+           showErr('浏览器存储满了，清掉了 '+dropped+' 张最旧的图，文字一个字没丢。');
+           return true; }catch(e2){}
+    }
+    showErr('本地存储写不进去了。先「导出对话 txt」再「清空对话」。');
+    return false;
+  }
+}
+
+/* ================= 表情包弹药库 ================= */
+let EMO=[];   // [{id, f, d}]
+function loadEmo(){
+  fetch('emo.json',{cache:'no-store'})
+    .then(r=>r.ok?r.json():Promise.reject(0))
+    .then(d=>{
+      EMO=(Array.isArray(d)?d:[]).filter(e=>e&&e.id&&e.f);
+      $('emoStat').textContent=EMO.length?('已装填 '+EMO.length+' 个'):'emo.json 是空的';
+      renderEmoPanel();renderAll();
+    })
+    .catch(()=>{ $('emoStat').textContent='没找到 emo.json（还没建）'; renderEmoPanel(); });
+}
+function emoPrompt(){
+  return '【表情包弹药库】你可以在回复里插入表情包，写法是 [emo:编号]，前端会渲染成图。'
+    +'一条回复最多用一个，情绪到位了才用，别刷屏。小狗发给你的 [emo:编号] 也是表情包，按描述理解。\n'
+    +'可用：\n'+EMO.map(e=>e.id+' '+(e.d||'')).join('\n');
+}
 
 /* ================= DOM ================= */
 const $=id=>document.getElementById(id);
 const chat=$('chat'), box=$('box'), sendBtn=$('send');
 let streaming=false, aborter=null;
+let pending=[];   // 待发图片 {data,media_type,w,h,tk}
+
+/* ================= 内容块工具 ================= */
+function toBlocks(c){
+  if(typeof c==='string')return [{type:'text',text:c}];
+  return Array.isArray(c)?c:[];
+}
+function plain(c){
+  return toBlocks(c).map(b=>b.type==='image'?'[图片]':(b.text||'')).join('');
+}
+function imgTokens(w,h){ return Math.ceil(w*h/750); }
+function countImgs(c){ return toBlocks(c).filter(b=>b.type==='image').length; }
 
 /* ================= 渲染 ================= */
 function fmt$(n){return '$'+n.toFixed(4)}
 function fmtK(n){return n>=1000?(n/1000).toFixed(1)+'K':String(n)}
 function renderMeter(){
-  $('meter').innerHTML=fmtK(S.total.in+S.total.out)+' tk<br><b>'+fmt$(S.total.cost)+'</b>';
+  const last=[...S.msgs].reverse().find(m=>m.usage);
+  const ctx=last?fmtK(last.usage.in+last.usage.cacheR+last.usage.cacheW):'—';
+  $('meter').innerHTML='上下文 <span class="ceil">'+ctx+'</span> · 累计 '
+    +fmtK(S.total.in+S.total.out)+' tk<br><b>'+fmt$(S.total.cost)+'</b>';
   $('modelTag').textContent=S.model.replace('claude-','').replace('-20251001','');
+}
+function paintText(el,t){
+  const parts=String(t==null?'':t).split(/(\[emo:[A-Za-z0-9_\-]+\])/);
+  parts.forEach(p=>{
+    const mm=/^\[emo:([A-Za-z0-9_\-]+)\]$/.exec(p);
+    if(mm){
+      const e=EMO.find(x=>String(x.id)===mm[1]);
+      if(e){
+        const im=document.createElement('img');
+        im.className='emo';im.src=e.f;im.alt=e.d||e.id;im.title=e.d||'';
+        el.appendChild(im);return;
+      }
+      const s=document.createElement('span');
+      s.className='emo miss';s.textContent='表情 '+mm[1]+'（没找到图）';
+      el.appendChild(s);return;
+    }
+    if(p)el.appendChild(document.createTextNode(p));
+  });
+}
+function fillBubble(el,m){
+  el.innerHTML='';
+  toBlocks(m.content).forEach(b=>{
+    if(b.type==='image'){
+      const im=document.createElement('img');
+      im.className='shot';
+      im.src='data:'+b.source.media_type+';base64,'+b.source.data;
+      im.onclick=()=>{ $('lbimg').src=im.src; $('lightbox').style.display='flex'; };
+      el.appendChild(im);
+    }else{
+      paintText(el,b.text);
+    }
+  });
 }
 function bubble(m,i){
   const d=document.createElement('div');
   d.className='msg '+m.role+(m.archived?' archived':'');
   d.dataset.i=i;
   const who=m.role==='user'?'小狗':'狼';
-  let html='<div class="who">'+who+(m.archived?' ·已入摘要':'')+'</div><div class="bubble"></div>';
-  d.innerHTML=html;
-  d.querySelector('.bubble').textContent=m.content;
+  d.innerHTML='<div class="who">'+who+(m.archived?' ·已入摘要':'')+'</div><div class="bubble"></div>';
+  fillBubble(d.querySelector('.bubble'),m);
   if(m.usage){
     const r=document.createElement('div');r.className='receipt';
     r.innerHTML='<span>in '+fmtK(m.usage.in)+'</span><span>out '+fmtK(m.usage.out)+'</span>'
       +(m.usage.cacheR?'<span>缓存读 '+fmtK(m.usage.cacheR)+'</span>':'')
+      +(m.usage.cacheW?'<span>缓存写 '+fmtK(m.usage.cacheW)+'</span>':'')
       +'<span class="c">'+fmt$(m.usage.cost)+'</span>';
+    d.appendChild(r);
+  }else if(m.imgTk){
+    const r=document.createElement('div');r.className='receipt';
+    r.innerHTML='<span class="img">图 '+countImgs(m.content)+' 张 ≈ '+fmtK(m.imgTk)+' tk</span>';
     d.appendChild(r);
   }
   return d;
@@ -293,42 +482,129 @@ function showErr(t){
   const e=document.createElement('div');e.className='err';e.textContent=t;
   chat.appendChild(e);chat.scrollTop=chat.scrollHeight;
 }
+function renderPending(){
+  const p=$('pending');p.innerHTML='';
+  p.classList.toggle('on',pending.length>0);
+  pending.forEach((im,i)=>{
+    const d=document.createElement('div');d.className='pend';
+    d.innerHTML='<img src="data:'+im.media_type+';base64,'+im.data+'">'
+      +'<div class="tk">'+fmtK(im.tk)+'</div>'
+      +'<button class="x" title="拿掉">×</button>';
+    d.querySelector('.x').onclick=()=>{pending.splice(i,1);renderPending()};
+    p.appendChild(d);
+  });
+}
+function renderEmoPanel(){
+  const g=$('emoGrid');g.innerHTML='';
+  if(!EMO.length){
+    g.innerHTML='<div class="empty">弹药库是空的。<br>在仓库根目录建 <code>emo/</code> 放图，再建 <code>emo.json</code>：<br>'
+      +'<code>[{"id":"001","f":"emo/001.png","d":"歪头疑惑"}]</code></div>';
+    return;
+  }
+  EMO.forEach(e=>{
+    const c=document.createElement('div');c.className='cell';
+    c.innerHTML='<img src="'+e.f+'" alt=""><span>'+(e.d||e.id)+'</span>';
+    c.onclick=()=>{ insertAtCursor('[emo:'+e.id+']'); };
+    g.appendChild(c);
+  });
+}
+function insertAtCursor(t){
+  const s=box.selectionStart||0,e=box.selectionEnd||0;
+  box.value=box.value.slice(0,s)+t+box.value.slice(e);
+  box.selectionStart=box.selectionEnd=s+t.length;
+  box.focus();autoGrow();
+}
 
 /* ================= 计费 ================= */
 function cost(model,u){
   const p=S.price[model]||[0,0];
   let c=(u.in*p[0]+u.out*p[1])/1e6;
-  if(u.cacheR) c+=u.cacheR*p[0]*0.1/1e6;      // 缓存读约1折
-  if(u.cacheW) c+=u.cacheW*p[0]*0.25/1e6;     // 缓存写约1.25倍中的增量
+  if(u.cacheR) c+=u.cacheR*p[0]*0.10/1e6;   // 缓存读 = 基础价一折
+  if(u.cacheW) c+=u.cacheW*p[0]*1.25/1e6;   // 缓存写 = 基础价 1.25 倍（原来写成 0.25，少算了）
   return c;
+}
+
+/* ================= 图片压缩 ================= */
+function compressImage(file){
+  return new Promise((res,rej)=>{
+    if(!/^image\//.test(file.type))return rej(new Error('不是图片'));
+    const url=URL.createObjectURL(file),img=new Image();
+    img.onload=()=>{
+      URL.revokeObjectURL(url);
+      const maxEdge=S.imgEdge||1024;
+      let w=img.naturalWidth,h=img.naturalHeight;
+      const s=Math.min(1,maxEdge/Math.max(w,h));
+      w=Math.max(1,Math.round(w*s));h=Math.max(1,Math.round(h*s));
+      const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+      const ctx=cv.getContext('2d');
+      ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);   // 透明底转白，避免 JPEG 变黑
+      ctx.drawImage(img,0,0,w,h);
+      const durl=cv.toDataURL('image/jpeg',0.8);
+      res({data:durl.split(',')[1],media_type:'image/jpeg',w,h,tk:imgTokens(w,h)});
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('图片读不出来'))};
+    img.src=url;
+  });
+}
+async function addFiles(files){
+  const list=[...files].filter(f=>/^image\//.test(f.type));
+  if(!list.length)return;
+  for(const f of list){
+    if(pending.length>=6){showErr('一次最多带 6 张，够你显摆了。');break}
+    try{ pending.push(await compressImage(f)); }
+    catch(e){ showErr('有张图没处理成功：'+e.message); }
+  }
+  renderPending();
 }
 
 /* ================= 组装请求 ================= */
 function buildPayload(){
   const sysBlocks=[];
-  if(S.sys.trim()){
-    const b={type:'text',text:S.sys.trim()};
-    if(S.cache)b.cache_control={type:'ephemeral'};
-    sysBlocks.push(b);
-  }
-  if(S.summary.trim()){
-    sysBlocks.push({type:'text',text:'【长期记忆摘要】\n'+S.summary.trim()});
-  }
+  if(S.sys.trim())sysBlocks.push({type:'text',text:S.sys.trim()});
+  if(S.emoOn&&EMO.length)sysBlocks.push({type:'text',text:emoPrompt()});
+  // 缓存断点打在「不变的那一段」末尾：指南 + 弹药库清单
+  if(S.cache&&sysBlocks.length)sysBlocks[sysBlocks.length-1].cache_control={type:'ephemeral'};
+  if(S.summary.trim())sysBlocks.push({type:'text',text:'【长期记忆摘要】\n'+S.summary.trim()});
+
   const live=S.msgs.filter(m=>!m.archived);
-  const win=live.slice(-S.window*2);           // N轮 = 2N条
-  const messages=win.map(m=>({role:m.role,content:m.content}));
-  return {model:S.model,max_tokens:4096,system:sysBlocks.length?sysBlocks:undefined,
-          messages,stream:true};
+  const win=live.slice(-S.window*2);
+
+  // 图片预算：从最新往回数，超出上限的旧图换成文字占位
+  const budget=Math.max(0,S.imgBudget|0);
+  let seen=0;
+  const out=[];
+  for(let i=win.length-1;i>=0;i--){
+    const blocks=[];
+    for(const b of toBlocks(win[i].content)){
+      if(b.type==='image'){
+        seen++;
+        if(seen<=budget){blocks.push(b);}
+        else{blocks.push({type:'text',text:'[更早的图片已省略]'});}
+      }else if((b.text||'').length){
+        blocks.push({type:'text',text:b.text});
+      }
+    }
+    if(blocks.length)out.unshift({role:win[i].role,content:blocks});
+  }
+  return {model:S.model,max_tokens:4096,
+          system:sysBlocks.length?sysBlocks:undefined,
+          messages:out,stream:true};
 }
 
 /* ================= 发送与流式 ================= */
 async function send(){
   if(streaming){aborter&&aborter.abort();return}
   const text=box.value.trim();
-  if(!text)return;
+  if(!text&&!pending.length)return;
   if(!S.key){showErr('还没填 API key——右上角「设置」。');openDrawer();return}
+
+  const blocks=pending.map(p=>({type:'image',source:{type:'base64',media_type:p.media_type,data:p.data}}));
+  if(text)blocks.push({type:'text',text});
+  const imgTk=pending.reduce((a,p)=>a+p.tk,0);
+  pending=[];renderPending();
   box.value='';autoGrow();
-  S.msgs.push({role:'user',content:text});
+
+  S.msgs.push({role:'user',content:blocks,imgTk:imgTk||0});
   save();renderAll();
 
   const am={role:'assistant',content:''};
@@ -375,7 +651,7 @@ async function send(){
           usage.cacheW=u.cache_creation_input_tokens||0;
         }else if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.text){
           am.content+=ev.delta.text;
-          bub.textContent=am.content;
+          bub.textContent=am.content;              // 流式先出字，收尾再渲染表情包
           chat.scrollTop=chat.scrollHeight;
         }else if(ev.type==='message_delta'&&ev.usage){
           usage.out=ev.usage.output_tokens||usage.out;
@@ -386,14 +662,14 @@ async function send(){
     }
     usage.cost=cost(S.model,usage);
     am.usage=usage;
-    S.total.in+=usage.in+usage.cacheR;S.total.out+=usage.out;S.total.cost+=usage.cost;
+    S.total.in+=usage.in+usage.cacheR+usage.cacheW;S.total.out+=usage.out;S.total.cost+=usage.cost;
     save();renderAll();
     if(S.autoSum)maybeCompress(false);
   }catch(err){
     if(err.name==='AbortError'){
       am.content+=am.content?'\n[已停止]':'[已停止]';
     }else{
-      if(!am.content){S.msgs.pop()}          // 空回复直接移除
+      if(!am.content){S.msgs.pop()}
       showErr('请求失败：'+err.message);
     }
     save();renderAll();
@@ -407,12 +683,12 @@ async function send(){
 async function maybeCompress(manual){
   const live=S.msgs.filter(m=>!m.archived);
   const keep=S.window*2;
-  if(live.length<=keep+(manual?0:6)){        // 自动模式：超出3轮才动手
+  if(live.length<=keep+(manual?0:6)){
     if(manual)showErr('还没超出记忆窗口，暂时不用压缩。');
     return;
   }
   const old=live.slice(0,live.length-keep);
-  const dialog=old.map(m=>(m.role==='user'?'小狗：':'狼：')+m.content).join('\n');
+  const dialog=old.map(m=>(m.role==='user'?'小狗：':'狼：')+plain(m.content)).join('\n');
   try{
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -431,7 +707,13 @@ async function maybeCompress(manual){
     const t=(d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
     if(t){
       S.summary=t.trim();
-      old.forEach(m=>m.archived=true);
+      old.forEach(m=>{
+        m.archived=true;
+        // 入摘要的老消息把图丢掉，省本地空间
+        const bs=toBlocks(m.content);
+        if(bs.some(b=>b.type==='image'))
+          m.content=bs.map(b=>b.type==='image'?{type:'text',text:'[图片·已入摘要]'}:b);
+      });
       const u={in:(d.usage&&d.usage.input_tokens)||0,out:(d.usage&&d.usage.output_tokens)||0};
       S.total.in+=u.in;S.total.out+=u.out;
       S.total.cost+=cost('claude-haiku-4-5-20251001',{in:u.in,out:u.out});
@@ -445,7 +727,7 @@ function exportTxt(){
   const head='备用小窝对话导出  '+new Date().toLocaleString('zh-CN')
     +'\n累计 '+fmtK(S.total.in+S.total.out)+' tk / '+fmt$(S.total.cost)
     +(S.summary?'\n\n【长期记忆摘要】\n'+S.summary:'')+'\n\n———\n\n';
-  const body=S.msgs.map(m=>(m.role==='user'?'小狗：':'狼：')+m.content
+  const body=S.msgs.map(m=>(m.role==='user'?'小狗：':'狼：')+plain(m.content)
     +(m.usage?'\n  ·'+fmtK(m.usage.in)+'in/'+fmtK(m.usage.out)+'out/'+fmt$(m.usage.cost):'')
   ).join('\n\n');
   const blob=new Blob([head+body],{type:'text/plain;charset=utf-8'});
@@ -454,15 +736,28 @@ function exportTxt(){
   a.download='窗口日记_'+new Date().toISOString().slice(0,10)+'.txt';
   a.click();URL.revokeObjectURL(a.href);
 }
+function stripImages(){
+  let n=0;
+  S.msgs.forEach(m=>{
+    const bs=toBlocks(m.content);
+    if(!bs.some(b=>b.type==='image'))return;
+    n+=bs.filter(b=>b.type==='image').length;
+    m.content=bs.map(b=>b.type==='image'?{type:'text',text:'[图片·已清理]'}:b);
+  });
+  save();renderAll();
+  showErr(n?('清掉了 '+n+' 张历史图片，文字都在。'):'历史里没有图片。');
+}
 
 /* ================= 抽屉 ================= */
 const drawer=$('drawer'),shade=$('shade');
 function openDrawer(){syncDrawer();drawer.classList.add('open');shade.style.display='block'}
-function closeDrawer(){readDrawer();drawer.classList.remove('open');shade.style.display='none';renderMeter()}
+function closeDrawer(){readDrawer();drawer.classList.remove('open');shade.style.display='none';renderAll()}
 function syncDrawer(){
   $('sKey').value=S.key;$('sModel').value=S.model;$('sWindow').value=S.window;
   $('sSys').value=S.sys;$('sSummary').value=S.summary;
   $('sCache').checked=S.cache;$('sAutoSum').checked=S.autoSum;
+  $('sEmoOn').checked=S.emoOn;
+  $('sImgBudget').value=S.imgBudget;$('sImgEdge').value=S.imgEdge;
   const g=$('priceGrid');g.innerHTML='<span class="ph">模型</span><span class="ph">输入$/M</span><span class="ph">输出$/M</span>';
   Object.keys(S.price).forEach(k=>{
     const short=k.replace('claude-','').replace('-20251001','');
@@ -477,6 +772,9 @@ function readDrawer(){
   S.window=Math.max(2,Math.min(40,parseInt($('sWindow').value)||8));
   S.sys=$('sSys').value;S.summary=$('sSummary').value;
   S.cache=$('sCache').checked;S.autoSum=$('sAutoSum').checked;
+  S.emoOn=$('sEmoOn').checked;
+  S.imgBudget=Math.max(0,Math.min(10,parseInt($('sImgBudget').value)||0));
+  S.imgEdge=Math.max(256,Math.min(1568,parseInt($('sImgEdge').value)||1024));
   drawer.querySelectorAll('.pricegrid input').forEach(i=>{
     const v=parseFloat(i.value);
     if(!isNaN(v))S.price[i.dataset.k][+i.dataset.x]=v;
@@ -490,12 +788,36 @@ shade.onclick=closeDrawer;
 sendBtn.onclick=send;
 $('bExport').onclick=()=>{readDrawer();exportTxt()};
 $('bCompress').onclick=()=>{readDrawer();maybeCompress(true)};
+$('bStrip').onclick=()=>{ if(confirm('把历史里所有图片删掉？文字保留，删了不可恢复。'))stripImages(); };
 $('bClear').onclick=()=>{
   if(confirm('清空全部对话和累计消耗？摘要和设置会保留。（建议先导出）')){
     S.msgs=[];S.total={in:0,out:0,cost:0};save();renderAll();closeDrawer();
   }
 };
 $('meter').onclick=renderMeter;
+$('lightbox').onclick=()=>{$('lightbox').style.display='none'};
+
+$('bPic').onclick=()=>$('picker').click();
+$('picker').onchange=e=>{addFiles(e.target.files);e.target.value=''};
+$('bEmo').onclick=()=>{
+  const p=$('emopanel');p.classList.toggle('on');
+  $('bEmo').classList.toggle('on',p.classList.contains('on'));
+};
+
+box.addEventListener('paste',e=>{
+  const items=[...(e.clipboardData&&e.clipboardData.items||[])];
+  const files=items.filter(i=>i.kind==='file'&&/^image\//.test(i.type)).map(i=>i.getAsFile());
+  if(files.length){e.preventDefault();addFiles(files)}
+});
+let dragDepth=0;
+document.addEventListener('dragenter',e=>{e.preventDefault();dragDepth++;document.body.classList.add('dragging')});
+document.addEventListener('dragover',e=>e.preventDefault());
+document.addEventListener('dragleave',e=>{if(--dragDepth<=0){dragDepth=0;document.body.classList.remove('dragging')}});
+document.addEventListener('drop',e=>{
+  e.preventDefault();dragDepth=0;document.body.classList.remove('dragging');
+  if(e.dataTransfer&&e.dataTransfer.files)addFiles(e.dataTransfer.files);
+});
+
 box.addEventListener('keydown',e=>{
   if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();send()}
 });
@@ -503,6 +825,8 @@ function autoGrow(){box.style.height='auto';box.style.height=Math.min(box.scroll
 box.addEventListener('input',autoGrow);
 
 renderAll();
+renderEmoPanel();
+loadEmo();
 </script>
 </body>
 </html>
